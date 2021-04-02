@@ -14,6 +14,7 @@
 # ==============================================================================
 """Internal APIs and core implementation of weight compression API."""
 from typing import List, Mapping
+import numpy as np
 import tensorflow as tf
 
 
@@ -212,7 +213,9 @@ class _InferenceWrapper(tf.keras.layers.Wrapper):
           *training_tensors)
       weights = []
       for t in compressed_tensors:
-        weight = self.add_weight(name='TODO', shape=t.shape)
+        weight = self.add_weight(
+            name='TODO', dtype=t.dtype, shape=t.shape,
+            initializer=tf.keras.initializers.Constant(t))
         weights.append(weight)
 
       self.compressed_weights[attr_name] = weights
@@ -326,6 +329,16 @@ def _map_to_inference_weights(training_weights, algorithm, training_tensors):
   return compressed_weights
 
 
+def ensure_numpy(tensor):
+  array = tensor
+  if isinstance(array, np.ndarray):
+    return array
+  if hasattr(array, 'numpy'):
+    array = array.numpy()
+  # .numpy() may return scalars as non-numpy arrays.
+  return np.array(array)
+
+
 def create_layer_for_training(layer, algorithm):
   """Internal API to create layer for training with weight compression."""
 
@@ -394,8 +407,7 @@ def create_layer_for_training(layer, algorithm):
         algorithm,
         layer,
         compressible_weights)
-    wrapped_layer.set_weights(
-        [weight.numpy() for weight in training_weights])
+    wrapped_layer.set_weights(list(map(ensure_numpy, training_weights)))
 
   return wrapped_layer
 
@@ -436,6 +448,6 @@ def create_layer_for_inference(layer: _TrainingWrapper, algorithm):
     # Set weights of layer for inference according to what was trained.
     inference_weights = _map_to_inference_weights(
         layer.get_weights(), algorithm, compressible_training_tensors)
-    layer_for_inference.set_weights(inference_weights)
+    layer_for_inference.set_weights(list(map(ensure_numpy, inference_weights)))
 
   return layer_for_inference

@@ -11,6 +11,7 @@ py_library(
     deps = [
         #TODO(tfmot): remove when we stick to Python 3.7, which includes this by default.
         # dataclasses dep1,
+        # numpy dep1,
         # tensorflow dep1,
     ],
 )
